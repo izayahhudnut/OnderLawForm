@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { FileText, Upload, X, CheckCircle, Loader2 } from "lucide-react";
+import Image from 'next/image';
+
 
 // Simple Alert Component
 const Alert: React.FC<{
@@ -96,9 +98,10 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     });
 
     // Log all FormData entries before sending
-    for (let pair of formDataToSend.entries()) {
+    for (const pair of formDataToSend.entries()) {
       console.log('FormData entry:', pair[0], pair[1]);
     }
+    
 
     console.log('Submitting form data to API...');
     
