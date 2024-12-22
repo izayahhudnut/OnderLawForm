@@ -260,7 +260,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
             {/* Text Inputs */}
             <div>
               <label htmlFor="insuredName" className="block text-lg font-medium text-gray-700 mb-2">
-                Insured's Name
+                Insured&#39;s Name
               </label>
               <input
                 type="text"
