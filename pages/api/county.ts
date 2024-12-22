@@ -7,13 +7,6 @@ import * as os from 'os';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
 
-interface FormidableFile {
-  filepath: string;
-  originalFilename: string | null;
-  newFilename: string;
-  mimetype: string | null;
-  size: number;
-}
 
 export const config = {
   api: {
