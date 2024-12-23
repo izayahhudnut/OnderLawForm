@@ -23,6 +23,7 @@ interface FormData {
   address: string;
   dateOfLoss: string;
   claimNumber: string;
+  insuranceCompanyAddress: string;
   aobContract: File | null;
   damagePicture: File | null;
   denial: File | null;
@@ -51,6 +52,7 @@ export default function Form() {
     address: "",
     dateOfLoss: "",
     claimNumber: "",
+    insuranceCompanyAddress: "",
     aobContract: null,
     damagePicture: null,
     denial: null,
@@ -276,6 +278,21 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
             </div>
 
             <div>
+              <label htmlFor="address" className="block text-lg font-medium text-gray-700 mb-2">
+                Address of Insured
+              </label>
+              <input
+                type="text"
+                name="address"
+                id="address"
+                value={formData.address}
+                onChange={handleChange}
+                className="mt-1 block w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900"
+                required
+              />
+            </div>
+
+            <div>
               <label htmlFor="insuranceCompany" className="block text-lg font-medium text-gray-700 mb-2">
                 Insurance Company
               </label>
@@ -284,6 +301,21 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
                 name="insuranceCompany"
                 id="insuranceCompany"
                 value={formData.insuranceCompany}
+                onChange={handleChange}
+                className="mt-1 block w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900"
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="insuranceCompanyAddress" className="block text-lg font-medium text-gray-700 mb-2">
+                Insurance Company Address
+              </label>
+              <input
+                type="text"
+                name="insuranceCompanyAddress"
+                id="insuranceCompanyAddress"
+                value={formData.insuranceCompanyAddress}
                 onChange={handleChange}
                 className="mt-1 block w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900"
                 required
@@ -321,20 +353,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
               />
             </div>
 
-            <div>
-              <label htmlFor="address" className="block text-lg font-medium text-gray-700 mb-2">
-                Address of Insured
-              </label>
-              <input
-                type="text"
-                name="address"
-                id="address"
-                value={formData.address}
-                onChange={handleChange}
-                className="mt-1 block w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900"
-                required
-              />
-            </div>
+         
 
             <div>
               <label htmlFor="dateOfLoss" className="block text-lg font-medium text-gray-700 mb-2">
