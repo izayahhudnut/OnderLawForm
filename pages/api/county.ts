@@ -1,12 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { IncomingForm, Fields, Files } from 'formidable';
+import { IncomingForm } from 'formidable';
 import * as fs from 'fs/promises';
 import { createReadStream } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
-
 
 export const config = {
   api: {
@@ -26,104 +25,118 @@ export default async function handler(
     const tmpDir = path.join(os.tmpdir(), 'uploads');
     await fs.mkdir(tmpDir, { recursive: true });
 
+    // Parse the form with formidable
     const form = new IncomingForm({
       uploadDir: tmpDir,
       keepExtensions: true,
       maxFileSize: 50 * 1024 * 1024,
+      multiples: true,
+      allowEmptyFiles: true,
+      minFileSize: 0,
     });
 
-    const [fields, files] = await new Promise<[Fields, Files]>((resolve, reject) => {
+    // Parse the incoming form
+    const formData = await new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
-        if (err) {
-          console.error('Form parsing error:', err);
-          reject(err);
-          return;
-        }
-        resolve([fields, files]);
+        if (err) reject(err);
+        resolve({ fields, files });
       });
     });
 
-    // Create a new FormData instance for sending to Zapier
-    const formData = new FormData();
-
-    // Add all the regular fields
+    const { fields, files } = formData as any;
+    
+    // Create a new FormData for Zapier
+    const zapierFormData = new FormData();
+    
+    // Add all form fields with trimming for text values
     Object.entries(fields).forEach(([key, value]) => {
-      if (value !== undefined) {
-        if (Array.isArray(value)) {
-          value.forEach((item) => {
-            if (item !== undefined && item !== null) {
-              formData.append(key, String(item));
-            }
-          });
-        } else {
-          formData.append(key, String(value));
-        }
+      if (Array.isArray(value)) {
+        value.forEach(v => {
+          // Trim string values
+          const processedValue = typeof v === 'string' ? v.trim() : v;
+          zapierFormData.append(key, processedValue);
+        });
+      } else {
+        // Trim string values
+        const processedValue = typeof value === 'string' ? value.trim() : value;
+        zapierFormData.append(key, processedValue);
       }
     });
-
-    // Process and add files
-    for (const [fieldName, file] of Object.entries(files)) {
-      const currentFile = Array.isArray(file) ? file[0] : file;
-      
-      if (!currentFile) {
-        console.log(`No file data for ${fieldName}`);
-        continue;
-      }
-
+    
+    // Process files
+    if (files) {
       try {
-        // Create a read stream for the file
-        const fileStream = createReadStream(currentFile.filepath);
+        // Log the files structure for debugging
+        console.log('Files received:', Object.keys(files));
         
-        // Append file to FormData with proper headers
-        formData.append(`files.${fieldName}`, fileStream, {
-          filename: currentFile.originalFilename || undefined,
-          contentType: currentFile.mimetype || undefined
-        });
-
-        console.log(`Added file to payload: ${fieldName}`, {
-          name: currentFile.originalFilename,
-          type: currentFile.mimetype,
-          size: currentFile.size
-        });
-
+        for (const [fieldName, fileObj] of Object.entries(files)) {
+          try {
+            const file = Array.isArray(fileObj) ? fileObj[0] : fileObj;
+            
+            // Skip files that don't exist or have no size
+            if (!file || !file.filepath) {
+              console.log(`Skipping ${fieldName}: No file data`);
+              continue;
+            }
+            
+            // Check file size
+            if (file.size <= 0) {
+              console.log(`Skipping ${fieldName}: Empty file (size: ${file.size})`);
+              continue;
+            }
+            
+            // Create and add file stream
+            console.log(`Processing file ${fieldName}: ${file.originalFilename} (${file.size} bytes)`);
+            const fileStream = createReadStream(file.filepath);
+            zapierFormData.append(fieldName, fileStream, {
+              filename: file.originalFilename || `${fieldName}.file`,
+              contentType: file.mimetype || 'application/octet-stream'
+            });
+          } catch (error) {
+            console.error(`Error processing file ${fieldName}:`, error);
+          }
+        }
       } catch (error) {
-        console.error(`Error processing file ${fieldName}:`, error);
+        console.error('Error in file processing loop:', error);
       }
     }
-
-    console.log('Sending files to Zapier...');
-
-    // Send to Zapier as multipart/form-data
+    
+    // Send to Zapier
     const zapierResponse = await fetch('https://hooks.zapier.com/hooks/catch/14035339/28moaq8/', {
       method: 'POST',
-      body: formData
+      body: zapierFormData
     });
-
-    // Now clean up the temporary files
-    for (const [fieldName, file] of Object.entries(files)) {
-      const currentFile = Array.isArray(file) ? file[0] : file;
-      if (currentFile && currentFile.filepath) {
-        await fs.unlink(currentFile.filepath).catch(err => {
-          console.error(`Error deleting temp file for ${fieldName}:`, err);
-        });
+    
+    // Clean up temp files
+    if (files) {
+      try {
+        console.log('Cleaning up temporary files...');
+        for (const fileObj of Object.values(files)) {
+          const file = Array.isArray(fileObj) ? fileObj[0] : fileObj;
+          if (file && file.filepath) {
+            try {
+              // Check if file exists before deleting
+              await fs.access(file.filepath);
+              await fs.unlink(file.filepath);
+              console.log(`Deleted temp file: ${file.filepath}`);
+            } catch (error) {
+              console.error(`Error cleaning up temp file ${file.filepath}:`, error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error in cleanup loop:', error);
       }
     }
-
-    const responseText = await zapierResponse.text();
-    console.log('Zapier response:', responseText);
-
-    return res.status(200).json({
-      message: 'Form submitted successfully',
-      zapierStatus: zapierResponse.status,
-      filesProcessed: Object.keys(files),
-      fieldsProcessed: Object.keys(fields)
-    });
-
+    
+    if (zapierResponse.ok) {
+      return res.status(200).json({ success: true });
+    } else {
+      return res.status(500).json({ error: 'Failed to submit to Zapier' });
+    }
+    
   } catch (error) {
-    console.error('API error:', error);
-    return res.status(500).json({
-      message: 'Error processing form submission',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    console.error('Error processing form submission:', error);
+    return res.status(500).json({ error: 'Server error' });
   }
 }

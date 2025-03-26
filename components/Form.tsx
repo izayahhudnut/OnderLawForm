@@ -1,468 +1,513 @@
 'use client';
 
-import { useState } from "react";
+import React, { useState, useRef, FormEvent } from "react";
 import { FileText, Upload, X, CheckCircle, Loader2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-
-// Simple Alert Component
-const Alert: React.FC<{
-  children: React.ReactNode;
-  className?: string;
-}> = ({ children, className = "" }) => (
-  <div className={`p-4 rounded-lg border ${className}`}>
-    {children}
-  </div>
-);
-
-// Form Data Interface
-interface FormData {
-  insuredName: string;
-  insuranceCompany: string;
-  county: string;
-  policyNumber: string;
-  address: string;
-  dateOfLoss: string;
-  claimNumber: string;
-  insuranceCompanyAddress: string;
-  aobContract: File | null;
-  damagePicture: File | null;
-  denial: File | null;
-  hoverReport1: File | null;
-  itelReport: File | null;
-  insuranceEstimate: File | null;
-  hisHersEstimate: File | null;
-  correspondent: File | null;
-}
-
-// File Upload Field Props Interface
-interface FileUploadFieldProps {
-  name: keyof FormData;
-  label: string;
-  required?: boolean;
-  formData: FormData;
-  setFormData: React.Dispatch<React.SetStateAction<FormData>>;
-}
+const missouriCounties = [
+  "Adair", "Andrew", "Atchison", "Audrain", "Barry", "Barton", "Bates", "Benton", "Bollinger",
+  "Boone", "Buchanan", "Butler", "Caldwell", "Callaway", "Camden", "Cape Girardeau", "Carroll",
+  "Carter", "Cass", "Cedar", "Chariton", "Christian", "Clark", "Clay", "Clinton", "Cole", "Cooper",
+  "Crawford", "Dade", "Dallas", "Daviess", "DeKalb", "Dent", "Douglas", "Dunklin", "Franklin",
+  "Gasconade", "Gentry", "Greene", "Grundy", "Harrison", "Henry", "Hickory", "Hopkins", "Howard",
+  "Howell", "Iron", "Jackson", "Jasper", "Jefferson", "Johnson", "Knox", "Laclede", "Lafayette",
+  "Lawrence", "Lewis", "Lincoln", "Linn", "Livingston", "McDonald", "Macon", "Madison", "Maries",
+  "Marion", "Mercer", "Miller", "Mississippi", "Moniteau", "Monroe", "Montgomery", "Morgan",
+  "New Madrid", "Newton", "Nodaway", "Oregon", "Osage", "Ozark", "Pemiscot", "Perry", "Pettis",
+  "Phelps", "Pike", "Platte", "Polk", "Pulaski", "Putnam", "Ralls", "Randolph", "Ray", "Reynolds",
+  "Ripley", "Saint Charles", "Saint Clair", "Saint Francois", "Saint Genevieve", "Saint Louis", 
+  "Saline", "Schuyler", "Scotland", "Scott", "Shannon", "Shelby", "Stoddard", "Stone", "Sullivan",
+  "Taney", "Texas", "Vernon", "Warren", "Washington", "Wayne", "Webster", "Worth", "Wright"
+];
 
 export default function Form() {
-  const [formData, setFormData] = useState<FormData>({
-    insuredName: "",
-    insuranceCompany: "",
-    county: "",
-    policyNumber: "",
-    address: "",
-    dateOfLoss: "",
-    claimNumber: "",
-    insuranceCompanyAddress: "",
-    aobContract: null,
-    damagePicture: null,
-    denial: null,
-    hoverReport1: null,
-    itelReport: null,
-    insuranceEstimate: null,
-    hisHersEstimate: null,
-    correspondent: null,
-  });
-
+  const formRef = useRef<HTMLFormElement>(null);
+  const [activeTab, setActiveTab] = useState("client");
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, files } = e.target;
+  
+  // Form data state to persist values between tabs
+  const [formData, setFormData] = useState({
+    // Client info
+    insuredName: "",
+    streetAddress: "",
+    city: "",
+    state: "",
+    zipCode: "",
+    county: "",
+    policyNumber: "",
+    claimNumber: "",
+    dateOfLoss: "",
+    
+    // Insurance info
+    insuranceCompany: "",
+    insuranceStreetAddress: "",
+    insuranceCity: "",
+    insuranceState: "",
+    insuranceZipCode: "",
+  });
+  
+  // Handle input changes to keep state in sync
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'file' ? files?.[0] || null : value
+      [name]: value
     }));
   };
-
-// Update the handleSubmit function in your Form component:
-const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  setIsSubmitting(true);
   
-  try {
-    const formDataToSend = new FormData();
-    
-    // Log the entire formData object
-    console.log('Full form data:', formData);
-    
-    // Append all text fields
-    Object.entries(formData).forEach(([key, value]) => {
-      if (value instanceof File) {
-        console.log(`Appending file ${key} - Name: ${value.name}, Size: ${value.size}, Type: ${value.type}`);
-        // Remove the files. prefix for the API
-        const fileKey = key;
-        formDataToSend.append(fileKey, value);
-      } else if (value !== null && typeof value === 'string') {
-        console.log(`Appending field ${key}:`, value);
-        formDataToSend.append(key, value);
+  // Function to trim all input values
+  const trimAllValues = (data: typeof formData) => {
+    const trimmed = { ...data };
+    Object.keys(trimmed).forEach(key => {
+      if (typeof trimmed[key as keyof typeof trimmed] === 'string') {
+        trimmed[key as keyof typeof trimmed] = (trimmed[key as keyof typeof trimmed] as string).trim();
       }
     });
-
-    // Log all FormData entries before sending
-    for (const pair of formDataToSend.entries()) {
-      console.log('FormData entry:', pair[0], pair[1]);
-    }
-    
-
-    console.log('Submitting form data to API...');
-    
-    const response = await fetch('/api/county', {
-      method: 'POST',
-      body: formDataToSend,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`HTTP error! status: ${response.status} - ${errorData.message}`);
-    }
-
-    const result = await response.json();
-    console.log('Submission result:', result);
-    
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 5000);
-  } catch (error) {
-    console.error('Error submitting form:', error);
-    alert('There was an error submitting the form. Please try again.');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-
-  const handleCountyKeyPress = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      console.log('Enter key pressed, initiating request with county:', formData.county);
+    return trimmed;
+  };
   
-      try {
-        const response = await fetch('/api/county', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ county: formData.county }),
-        });
-  
-        const result = await response.json();
-  
-        if (!response.ok) {
-          console.error('API Error:', response.status, result.message);
-          alert(`Error: ${result.message}`);
-          return;
+  const [files, setFiles] = useState({
+    aobContract: null as File | null,
+    damagePicture: null as File | null,
+    denial: null as File | null,
+    hoverReport1: null as File | null,
+    itelReport: null as File | null,
+    insuranceEstimate: null as File | null,
+    hisHersEstimate: null as File | null,
+    correspondent: null as File | null
+  });
+
+  const handleFileChange = (name: keyof typeof files, file: File | null) => {
+    setFiles(prev => ({ ...prev, [name]: file }));
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      // Create a new FormData object
+      const submitFormData = new FormData();
+      
+      // Trim all form values and add them to the form data
+      const trimmedData = trimAllValues(formData);
+      
+      // Add all form fields from our trimmed state
+      Object.entries(trimmedData).forEach(([name, value]) => {
+        submitFormData.append(name, value);
+      });
+      
+      // Append all files - only include files that have content
+      Object.entries(files).forEach(([name, file]) => {
+        if (file && file.size > 0) {
+          submitFormData.append(name, file);
         }
-  
-        console.log('API Response:', result);
-        alert('County data sent successfully!');
-      } catch (error) {
-        console.error('Unexpected error:', error);
-        alert('An unexpected error occurred.');
+        // Skip empty files completely to avoid formidable errors
+      });
+
+      console.log('Submitting form...');
+      const response = await fetch('/api/county', {
+        method: 'POST',
+        body: submitFormData,
+      });
+
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (err) {
+        responseData = { error: 'Could not parse server response' };
       }
+      
+      if (!response.ok) {
+        console.error('Server returned error:', responseData);
+        throw new Error(responseData.error || 'Submission failed');
+      }
+      
+      console.log('Form submitted successfully:', responseData);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 5000);
+      
+      // Reset form state
+      setFormData({
+        insuredName: "",
+        streetAddress: "",
+        city: "",
+        state: "",
+        zipCode: "",
+        county: "",
+        policyNumber: "",
+        claimNumber: "",
+        dateOfLoss: "",
+        insuranceCompany: "",
+        insuranceStreetAddress: "",
+        insuranceCity: "",
+        insuranceState: "",
+        insuranceZipCode: "",
+      });
+      
+      // Clear files
+      setFiles({
+        aobContract: null,
+        damagePicture: null,
+        denial: null,
+        hoverReport1: null,
+        itelReport: null,
+        insuranceEstimate: null,
+        hisHersEstimate: null,
+        correspondent: null
+      });
+      
+      // Reset form ref
+      if (formRef.current) {
+        formRef.current.reset();
+      }
+      
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      alert('Submission failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const FileUploadField: React.FC<FileUploadFieldProps> = ({ 
-    name, 
-    label, 
+  const FileUploadField = ({
+    name,
+    label,
     required = false,
-    formData,
-    setFormData
+    file,
+    onChange,
+  }: {
+    name: string;
+    label: string;
+    required?: boolean;
+    file: File | null;
+    onChange: (file: File | null) => void;
   }) => {
-    const file = formData[name] as File | null;
-    
-    const handleRemoveFile = (e: React.MouseEvent<HTMLButtonElement>) => {
-      e.preventDefault();
-      setFormData(prev => ({
-        ...prev,
-        [name]: null
-      }));
-    };
-
     return (
-      <div className="relative">
-        <label htmlFor={name} className="block text-lg font-medium text-gray-700 mb-2">
-          {label} {required && <span className="text-red-500">*</span>}
+      <div className="space-y-2">
+        <Label htmlFor={name} className="text-sm font-medium">
+          {label} {required && <span className="text-black">*</span>}
           {!required && <span className="text-sm font-normal text-gray-500 ml-2">(Optional)</span>}
-        </label>
-        <div className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 ${file ? 'border-blue-900 bg-blue-50' : 'border-gray-300 border-dashed'} rounded-lg transition-all duration-200 ${!file && 'hover:border-blue-400'}`}>
+        </Label>
+        
+        <div className={`w-full rounded-md border border-dashed p-4 ${file ? 'bg-white border-black' : 'border-gray-300'}`}>
           {!file ? (
-            <div className="space-y-1 text-center">
-              <Upload className="mx-auto h-12 w-12 text-gray-400" />
-              <div className="flex text-sm text-gray-600">
-                <label htmlFor={name} className="relative cursor-pointer rounded-md font-medium text-blue-900 hover:text-blue-500">
-                  <span>Upload a file</span>
-                  <input
-                    id={name}
-                    name={name}
-                    type="file"
-                    className="sr-only"
-                    onChange={handleChange}
-                    required={required}
-                  />
-                </label>
-                <p className="pl-1">or drag and drop</p>
-              </div>
-              <p className="text-xs text-gray-500">PDF, PNG, JPG up to 10MB</p>
+            <div className="flex flex-col items-center justify-center py-4">
+              <Upload className="h-8 w-8 text-black mb-2" />
+              <Label htmlFor={name} className="text-sm cursor-pointer text-black hover:text-gray-700 font-medium">
+                Choose a file
+                <Input
+                  id={name}
+                  name={name}
+                  type="file"
+                  className="sr-only"
+                  onChange={(e) => onChange(e.target.files?.[0] || null)}
+                  required={required}
+                  noInfoButton
+                />
+              </Label>
+              <p className="text-xs text-gray-500 mt-1">PDF, PNG, JPG up to 10MB</p>
             </div>
           ) : (
-            <div className="w-full flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <FileText className="h-8 w-8 text-blue-900" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="h-8 w-8 text-black" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                  <p className="text-sm font-medium text-black">{file.name}</p>
                   <p className="text-xs text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                 </div>
               </div>
-              <button
-                onClick={handleRemoveFile}
-                className="p-1 hover:bg-blue-900 rounded-full transition-colors"
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onChange(null);
+                }}
+                className="h-8 w-8 rounded-full hover:bg-gray-200"
               >
-                <X className="h-5 w-5 text-gray-500 hover:text-gray-700" />
-              </button>
+                <X className="h-4 w-4 text-black" />
+              </Button>
             </div>
           )}
         </div>
       </div>
-    );
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 pb-12 relative">
-      {showSuccess && (
-        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2">
-          <Alert className="bg-green-50 border-green-200">
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              <div>
-                <h3 className="font-medium text-black">Success!</h3>
-                <p className="text-sm text-gray-600">
-                  Your complaint form has been submitted successfully.
-                </p>
-              </div>
-            </div>
-          </Alert>
-        </div>
-      )}
-
-      <form
-        onSubmit={handleSubmit}
-        className="max-w-7xl mx-auto bg-white shadow-xl rounded-2xl border border-gray-200"
-      >
-        <div className="px-8 py-6 border-b border-gray-200 bg-gray-50 rounded-t-2xl">
-          <div className="flex items-center space-x-3">
-            <FileText className="h-8 w-8 text-blue-900" />
-            <h1 className="text-3xl font-bold text-gray-900">
-              Complaint Form
-            </h1>
-          </div>
-          <p className="mt-2 text-gray-600">
-            Please fill in all required information for the AOB complaint
-          </p>
-        </div>
-
-        <div className="px-8 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Text Inputs */}
-            <div>
-              <label htmlFor="insuredName" className="block text-lg font-medium text-gray-700 mb-2">
-                Insured&#39;s Name
-              </label>
-              <input
-                type="text"
-                name="insuredName"
-                id="insuredName"
-                value={formData.insuredName}
-                onChange={handleChange}
-                className="mt-1 block w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900"
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="address" className="block text-lg font-medium text-gray-700 mb-2">
-                Address of Insured
-              </label>
-              <input
-                type="text"
-                name="address"
-                id="address"
-                value={formData.address}
-                onChange={handleChange}
-                className="mt-1 block w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900"
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="insuranceCompany" className="block text-lg font-medium text-gray-700 mb-2">
-                Insurance Company
-              </label>
-              <input
-                type="text"
-                name="insuranceCompany"
-                id="insuranceCompany"
-                value={formData.insuranceCompany}
-                onChange={handleChange}
-                className="mt-1 block w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900"
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="insuranceCompanyAddress" className="block text-lg font-medium text-gray-700 mb-2">
-                Insurance Company Address
-              </label>
-              <input
-                type="text"
-                name="insuranceCompanyAddress"
-                id="insuranceCompanyAddress"
-                value={formData.insuranceCompanyAddress}
-                onChange={handleChange}
-                className="mt-1 block w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900"
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="county" className="block text-lg font-medium text-gray-700 mb-2">
-                County
-              </label>
-              <input
-                type="text"
-                name="county"
-                id="county"
-                value={formData.county}
-                onChange={handleChange}
-                onKeyDown={handleCountyKeyPress}
-                className="mt-1 block w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900"
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="policyNumber" className="block text-lg font-medium text-gray-700 mb-2">
-                Policy Number
-              </label>
-              <input
-                type="text"
-                name="policyNumber"
-                id="policyNumber"
-                value={formData.policyNumber}
-                onChange={handleChange}
-                className="mt-1 block w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900"
-                required
-              />
-            </div>
-
-         
-
-            <div>
-              <label htmlFor="dateOfLoss" className="block text-lg font-medium text-gray-700 mb-2">
-                Date of Loss
-              </label>
-              <input
-                type="date"
-                name="dateOfLoss"
-                id="dateOfLoss"
-                value={formData.dateOfLoss}
-                onChange={handleChange}
-                className="mt-1 block w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900"
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="claimNumber" className="block text-lg font-medium text-gray-700 mb-2">
-                Claim Number
-              </label>
-              <input
-                type="text"
-                name="claimNumber"
-                id="claimNumber"
-                value={formData.claimNumber}
-                onChange={handleChange}
-                className="mt-1 block w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-gray-900"
-                required
-              />
-            </div>
-          </div>
-
-          {/* File Uploads */}
-          <div className="mt-10 space-y-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">
-              Documents
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <FileUploadField 
-                name="aobContract" 
-                label="AOB Contract" 
-                required={true}
-                formData={formData}
-                setFormData={setFormData}
-              />
-              <FileUploadField 
-                name="damagePicture" 
-                label="Picture of Damage"
-                formData={formData}
-                setFormData={setFormData}
-              />
-              <FileUploadField 
-                name="denial" 
-                label="Denial Document"
-                formData={formData}
-                setFormData={setFormData}
-              />
-              <FileUploadField 
-                name="hoverReport1" 
-                label="Hover Report"
-                formData={formData}
-                setFormData={setFormData}
-              />
-              <FileUploadField 
-                name="itelReport" 
-                label="ITEL Report"
-                formData={formData}
-                setFormData={setFormData}
-              />
-              <FileUploadField 
-                name="insuranceEstimate" 
-                label="Insurance Estimate"
-                formData={formData}
-                setFormData={setFormData}
-              />
-              <FileUploadField 
-                name="hisHersEstimate" 
-                label="His & Hers Estimate"
-                formData={formData}
-                setFormData={setFormData}
-              />
-              <FileUploadField 
-                name="correspondent" 
-                label="Correspondent"
-                formData={formData}
-                setFormData={setFormData}
-              />
-            </div>
-          </div>
-
-          <div className="mt-10 flex items-center justify-end space-x-4">
-      
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-8 py-3 bg-blue-900 text-white rounded-lg hover:bg-blue-900 transition-colors flex items-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>Submitting...</span>
-                </>
-              ) : (
-                <span>Submit Form</span>
-              )}
-            </button>
-          </div>
-        </div>
-      </form>
-    </div>
   );
+};
+
+const goToNextTab = () => {
+  if (activeTab === "client") setActiveTab("insurance");
+  else if (activeTab === "insurance") setActiveTab("documents");
+};
+
+return (
+  <div className="min-h-screen bg-white p-4 md:p-8">
+    {showSuccess && (
+      <div className="fixed top-4 right-4 z-50">
+        <Alert className="bg-white border border-gray-300">
+          <CheckCircle className="h-4 w-4 text-black" />
+          <AlertTitle className="text-black">Success</AlertTitle>
+          <AlertDescription className="text-gray-700">
+            Your complaint form has been submitted successfully.
+          </AlertDescription>
+        </Alert>
+      </div>
+    )}
+
+    <Card className="max-w-4xl mx-auto shadow-lg bg-white">
+      <CardHeader className="bg-white border-b border-gray-200">
+        <div className="flex items-center gap-2">
+          <FileText className="h-6 w-6 text-black" />
+          <CardTitle className="text-black">AOB Complaint Form</CardTitle>
+        </div>
+        <CardDescription className="text-gray-700">
+          Please complete all required fields for your Assignment of Benefits complaint
+        </CardDescription>
+      </CardHeader>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="px-6 pt-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="client">Client Info</TabsTrigger>
+            <TabsTrigger value="insurance">Insurance Info</TabsTrigger>
+            <TabsTrigger value="documents">Documents</TabsTrigger>
+          </TabsList>
+        </div>
+
+        <form ref={formRef} onSubmit={handleSubmit}>
+          <CardContent className="p-6">
+            {/* Client Information */}
+            <TabsContent value="client" className="space-y-6 mt-0">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="insuredName">Insured&apos;s Name *</Label>
+                  <Input
+                    id="insuredName"
+                    name="insuredName"
+                    value={formData.insuredName}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Address of Insured *</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input 
+                      name="streetAddress" 
+                      placeholder="Street Address" 
+                      value={formData.streetAddress}
+                      onChange={handleInputChange}
+                      required 
+                    />
+                    <Input 
+                      name="city" 
+                      placeholder="City" 
+                      value={formData.city}
+                      onChange={handleInputChange}
+                      required 
+                    />
+                    <Input 
+                      name="state" 
+                      placeholder="State" 
+                      value={formData.state}
+                      onChange={handleInputChange}
+                      required 
+                    />
+                    <Input 
+                      name="zipCode" 
+                      placeholder="Zip Code" 
+                      value={formData.zipCode}
+                      onChange={handleInputChange}
+                      required 
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="county">County of Insured *</Label>
+                    <select
+                      id="county"
+                      name="county"
+                      value={formData.county}
+                      onChange={handleInputChange}
+                      required
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black sm:text-sm"
+                    >
+                      <option value="">Select County</option>
+                      {missouriCounties.map(county => (
+                        <option key={county} value={county}>{county}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="policyNumber">Policy Number *</Label>
+                    <Input 
+                      name="policyNumber" 
+                      value={formData.policyNumber}
+                      onChange={handleInputChange}
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="claimNumber">Claim Number *</Label>
+                    <Input 
+                      name="claimNumber" 
+                      value={formData.claimNumber}
+                      onChange={handleInputChange}
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dateOfLoss">Date of Loss *</Label>
+                    <Input 
+                      name="dateOfLoss" 
+                      type="date" 
+                      value={formData.dateOfLoss}
+                      onChange={handleInputChange}
+                      required 
+                    />
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Insurance Information */}
+            <TabsContent value="insurance" className="space-y-6 mt-0">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="insuranceCompany">Insurance Company Name *</Label>
+                  <Input 
+                    name="insuranceCompany"
+                    value={formData.insuranceCompany}
+                    onChange={handleInputChange} 
+                    required 
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Insurance Company Address *</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input 
+                      name="insuranceStreetAddress" 
+                      placeholder="Street Address" 
+                      value={formData.insuranceStreetAddress}
+                      onChange={handleInputChange}
+                      required 
+                    />
+                    <Input 
+                      name="insuranceCity" 
+                      placeholder="City" 
+                      value={formData.insuranceCity}
+                      onChange={handleInputChange}
+                      required 
+                    />
+                    <Input 
+                      name="insuranceState" 
+                      placeholder="State" 
+                      value={formData.insuranceState}
+                      onChange={handleInputChange}
+                      required 
+                    />
+                    <Input 
+                      name="insuranceZipCode" 
+                      placeholder="Zip Code" 
+                      value={formData.insuranceZipCode}
+                      onChange={handleInputChange}
+                      required 
+                    />
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Documents */}
+            <TabsContent value="documents" className="space-y-6 mt-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FileUploadField
+                  name="aobContract"
+                  label="AOB Contract"
+                  required
+                  file={files.aobContract}
+                  onChange={(file) => handleFileChange('aobContract', file)}
+                />
+                <FileUploadField
+                  name="damagePicture"
+                  label="Picture of Damage"
+                  file={files.damagePicture}
+                  onChange={(file) => handleFileChange('damagePicture', file)}
+                />
+                <FileUploadField
+                  name="denial"
+                  label="Denial Document"
+                  file={files.denial}
+                  onChange={(file) => handleFileChange('denial', file)}
+                />
+                <FileUploadField
+                  name="hoverReport1"
+                  label="Hover Report"
+                  file={files.hoverReport1}
+                  onChange={(file) => handleFileChange('hoverReport1', file)}
+                />
+                <FileUploadField
+                  name="itelReport"
+                  label="ITEL Report"
+                  file={files.itelReport}
+                  onChange={(file) => handleFileChange('itelReport', file)}
+                />
+                <FileUploadField
+                  name="insuranceEstimate"
+                  label="Insurance Estimate"
+                  file={files.insuranceEstimate}
+                  onChange={(file) => handleFileChange('insuranceEstimate', file)}
+                />
+                <FileUploadField
+                  name="hisHersEstimate"
+                  label="His & Hers Estimate"
+                  file={files.hisHersEstimate}
+                  onChange={(file) => handleFileChange('hisHersEstimate', file)}
+                />
+                <FileUploadField
+                  name="correspondent"
+                  label="Correspondent"
+                  file={files.correspondent}
+                  onChange={(file) => handleFileChange('correspondent', file)}
+                />
+              </div>
+            </TabsContent>
+          </CardContent>
+
+          <CardFooter className="border-t p-6 bg-white flex justify-between">
+            <div className="text-sm text-gray-700">
+              <p>All fields marked with <span className="text-black">*</span> are required</p>
+            </div>
+            {activeTab !== "documents" ? (
+              <Button type="button" onClick={goToNextTab} className="bg-black hover:bg-gray-800 text-white">
+                Next
+              </Button>
+            ) : (
+              <Button type="submit" disabled={isSubmitting} className="bg-black hover:bg-gray-800 text-white">
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin text-white" />
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  <span>Submit Complaint</span>
+                )}
+              </Button>
+            )}
+          </CardFooter>
+        </form>
+      </Tabs>
+    </Card>
+  </div>
+);
 }
