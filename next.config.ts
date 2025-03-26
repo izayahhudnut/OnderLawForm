@@ -5,15 +5,6 @@ const nextConfig: NextConfig = {
     // Will only be available on the server side
     tempDirectory: '/tmp/uploads',
   },
-  // Enable API routes
-  api: {
-    // Configure body parsing
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
-    // Increase response size limit
-    responseLimit: false,
-  },
   // Increase webpack buffer if needed
   webpack: (config) => {
     config.performance = {

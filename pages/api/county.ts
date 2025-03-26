@@ -43,7 +43,7 @@ export default async function handler(
       });
     });
 
-    const { fields, files } = formData as any;
+    const { fields, files } = formData as { fields: Record<string, string | string[]>; files: Record<string, { filepath: string; originalFilename?: string; size: number; mimetype?: string }> };
     
     // Create a new FormData for Zapier
     const zapierFormData = new FormData();

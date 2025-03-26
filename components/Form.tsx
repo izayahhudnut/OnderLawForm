@@ -120,7 +120,7 @@ export default function Form() {
       let responseData;
       try {
         responseData = await response.json();
-      } catch (err) {
+      } catch {
         responseData = { error: 'Could not parse server response' };
       }
       
