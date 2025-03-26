@@ -344,7 +344,6 @@ return (
                       name="county"
                       value={formData.county}
                       onChange={(e) => {
-                        const selectedCounty = e.target.value;
                         // For displaying purposes in the UI, we store what the user selected
                         // But for submission to Zapier, we'll convert it if needed
                         handleInputChange(e);
