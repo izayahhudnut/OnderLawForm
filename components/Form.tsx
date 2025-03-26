@@ -20,7 +20,8 @@ const missouriCounties = [
   "Marion", "Mercer", "Miller", "Mississippi", "Moniteau", "Monroe", "Montgomery", "Morgan",
   "New Madrid", "Newton", "Nodaway", "Oregon", "Osage", "Ozark", "Pemiscot", "Perry", "Pettis",
   "Phelps", "Pike", "Platte", "Polk", "Pulaski", "Putnam", "Ralls", "Randolph", "Ray", "Reynolds",
-  "Ripley", "Saint Charles", "Saint Clair", "Saint Francois", "Saint Genevieve", "Saint Louis", 
+  "Ripley", "Saint Charles", "Saint Clair", "Saint Francois", "Saint Genevieve", 
+  "Saint Louis City", "Saint Louis County",
   "Saline", "Schuyler", "Scotland", "Scott", "Shannon", "Shelby", "Stoddard", "Stone", "Sullivan",
   "Taney", "Texas", "Vernon", "Warren", "Washington", "Wayne", "Webster", "Worth", "Wright"
 ];
@@ -98,9 +99,14 @@ export default function Form() {
       // Trim all form values and add them to the form data
       const trimmedData = trimAllValues(formData);
       
-      // Add all form fields from our trimmed state
+      // Add all form fields from our trimmed state, with special handling for county
       Object.entries(trimmedData).forEach(([name, value]) => {
-        submitFormData.append(name, value);
+        if (name === 'county' && value === 'Saint Louis County') {
+          // For Saint Louis County, send just "Saint Louis" to Zapier
+          submitFormData.append(name, 'Saint Louis');
+        } else {
+          submitFormData.append(name, value);
+        }
       });
       
       // Append all files - only include files that have content
@@ -337,7 +343,12 @@ return (
                       id="county"
                       name="county"
                       value={formData.county}
-                      onChange={handleInputChange}
+                      onChange={(e) => {
+                        const selectedCounty = e.target.value;
+                        // For displaying purposes in the UI, we store what the user selected
+                        // But for submission to Zapier, we'll convert it if needed
+                        handleInputChange(e);
+                      }}
                       required
                       className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black sm:text-sm"
                     >
